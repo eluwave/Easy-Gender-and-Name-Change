@@ -17,7 +17,7 @@ With the game closed, copy `dist/CustomizeNames` into `SAOFB/Binaries/Win64/ue4s
 ## Credits
 
 - **eluwave** — original Blueprint mod and in-game testing.
-- **OpenAI Codex (`gpt-6.2-sol`)** — UE4SS implementation and build script.
+- **T3 Code (`gpt-6.2-sol`, medium reasoning)** — UE4SS implementation and build script.
 
 ## Community
 
