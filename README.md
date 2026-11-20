@@ -2,11 +2,9 @@
 
 Rename your player or ArFA-sys after confirming their appearance in Sword Art Online: Fatal Bullet. The name field starts with their current name.
 
-**Compatibility** Steam 1.9.0 (Win64) and UE4SS v3.0.1 Beta (`17e30d5c`).
-
 ## Build and install
 
-Build with MSVC x64, Git, and the matching UE4SS source and Shipping x64 DLL. Initialize the `deps/first/Unreal` submodule before building.
+Build with MSVC x64, Git, UE4SS source at `17e30d5c`, and its matching Shipping x64 DLL. Initialize the `deps/first/Unreal` submodule before building.
 
 ```powershell
 .\build.ps1 -Ue4ssSource 'C:\src\RE-UE4SS' -Ue4ssDll 'C:\game\ue4ss\UE4SS.dll'
