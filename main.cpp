@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #include <Mod/CppUserModBase.hpp>
 
@@ -56,6 +58,69 @@ namespace
         return (patch.functionRva + patch.offset) % alignof(SHORT) == 0;
     }));
 
+    constexpr DWORD StartAppearance = 0x003f88a0;
+    constexpr DWORD StartGender = 0x003f88c0;
+    constexpr size_t DelegateGameMode = 0x08;
+    constexpr size_t GameModeAgent = 0x500;
+    constexpr size_t GameModeFirstTime = 0x521;
+    constexpr int Confirmed = 0;
+    constexpr int Back = 2;
+
+    unsigned char* gameImage{};
+
+    bool openRegularStep(const unsigned char* delegate, DWORD step, bool allowBack)
+    {
+        // These delegates belong to VGCustomizeGameMode and hold its instance
+        // directly. The current preview avatar already contains the editable look.
+        const auto* gameMode = *reinterpret_cast<unsigned char* const*>(delegate + DelegateGameMode);
+        if (!gameMode || gameMode[GameModeFirstTime])
+        {
+            return false;
+        }
+        auto* agent = *reinterpret_cast<void* const*>(gameMode + GameModeAgent);
+        if (!agent)
+        {
+            return false;
+        }
+        reinterpret_cast<void (*)(void*, bool)>(gameImage + step)(agent, allowBack);
+        return true;
+    }
+
+    template <DWORD Original, int RoutedResult, DWORD NextStep, bool AllowBack, typename Result>
+    Result routeCustomization(unsigned char* delegate, int result)
+    {
+        if (result == RoutedResult && openRegularStep(delegate, NextStep, AllowBack))
+        {
+            if constexpr (std::is_same_v<Result, bool>)
+            {
+                return true;
+            }
+            else
+            {
+                return;
+            }
+        }
+        return reinterpret_cast<Result (*)(unsigned char*, int)>(gameImage + Original)(delegate, result);
+    }
+
+    struct DelegatePatch
+    {
+        DWORD slotRva;
+        DWORD originalRva;
+        void* replacement;
+    };
+
+    // Both the original and cloned delegate have an Execute slot. The clone
+    // also has ExecuteIfBound. Keep both native first-time paths available.
+    const std::array<DelegatePatch, 6> DelegatePatches = {{
+        {0x0394dd10, 0x003aac40, reinterpret_cast<void*>(&routeCustomization<0x003aac40, Confirmed, StartAppearance, true, void>)},
+        {0x0394dd80, 0x003aac40, reinterpret_cast<void*>(&routeCustomization<0x003aac40, Confirmed, StartAppearance, true, void>)},
+        {0x0394dd88, 0x003ab130, reinterpret_cast<void*>(&routeCustomization<0x003ab130, Confirmed, StartAppearance, true, bool>)},
+        {0x0394ded0, 0x003aabd0, reinterpret_cast<void*>(&routeCustomization<0x003aabd0, Back, StartGender, false, void>)},
+        {0x0394df40, 0x003aabd0, reinterpret_cast<void*>(&routeCustomization<0x003aabd0, Back, StartGender, false, void>)},
+        {0x0394df48, 0x003ab090, reinterpret_cast<void*>(&routeCustomization<0x003ab090, Back, StartGender, false, bool>)},
+    }};
+
     void log(const char* message)
     {
         OutputDebugStringA(message);
@@ -105,13 +170,30 @@ namespace
         return replaced;
     }
 
+    bool replaceDelegate(DWORD slotRva, void* from, void* to)
+    {
+        auto* slot = reinterpret_cast<void* volatile*>(gameImage + slotRva);
+        DWORD previousProtection{};
+        if (!VirtualProtect(gameImage + slotRva, sizeof(void*), PAGE_READWRITE, &previousProtection))
+        {
+            return false;
+        }
+        const bool replaced = InterlockedCompareExchangePointer(slot, to, from) == from;
+        DWORD unused{};
+        if (!VirtualProtect(gameImage + slotRva, sizeof(void*), previousProtection, &unused))
+        {
+            log("[CustomizeNames] Could not restore delegate page protection.\r\n");
+        }
+        return replaced;
+    }
+
     class CustomizeNames final : public RC::CppUserModBase
     {
     public:
         CustomizeNames()
         {
             ModName = STR("CustomizeNames");
-            ModVersion = STR("1.1.0");
+            ModVersion = STR("1.1.1");
             ModDescription = STR("Enables gender selection and name entry in regular Fatal Bullet customization.");
         }
 
@@ -136,6 +218,25 @@ namespace
                     log("[CustomizeNames] Customization code differs from the supported game build.\r\n");
                     return;
                 }
+            }
+            for (const auto& patch : DelegatePatches)
+            {
+                if (*reinterpret_cast<void* const*>(m_image + patch.slotRva) != m_image + patch.originalRva)
+                {
+                    log("[CustomizeNames] Customization delegate differs from the supported game build.\r\n");
+                    return;
+                }
+            }
+            gameImage = m_image;
+            for (const auto& patch : DelegatePatches)
+            {
+                if (!replaceDelegate(patch.slotRva, gameImage + patch.originalRva, patch.replacement))
+                {
+                    log("[CustomizeNames] Could not enable direct transitions between gender and appearance.\r\n");
+                    restore();
+                    return;
+                }
+                ++m_delegatesApplied;
             }
             for (const auto& patch : Patches)
             {
@@ -166,10 +267,19 @@ namespace
                     log("[CustomizeNames] Could not restore customization code. Restart the game.\r\n");
                 }
             }
+            while (m_delegatesApplied > 0)
+            {
+                const auto& patch = DelegatePatches[--m_delegatesApplied];
+                if (!replaceDelegate(patch.slotRva, patch.replacement, gameImage + patch.originalRva))
+                {
+                    log("[CustomizeNames] Could not restore a customization delegate. Restart the game.\r\n");
+                }
+            }
         }
 
         unsigned char* m_image{};
         size_t m_applied{};
+        size_t m_delegatesApplied{};
     };
 }
 
