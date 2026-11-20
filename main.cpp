@@ -137,7 +137,7 @@ namespace
             return;
         }
         auto* filename = wcsrchr(path, L'\\');
-        if (!filename || wcscpy_s(filename + 1, MAX_PATH - (filename + 1 - path), L"CustomizeNames.log"))
+        if (!filename || wcscpy_s(filename + 1, MAX_PATH - (filename + 1 - path), L"EasyGenderAndNameChange.log"))
         {
             return;
         }
@@ -165,7 +165,7 @@ namespace
         DWORD unused{};
         if (!VirtualProtect(address, sizeof(SHORT), previousProtection, &unused))
         {
-            log("[CustomizeNames] Could not restore page protection.\r\n");
+            log("[EasyGenderAndNameChange] Could not restore page protection.\r\n");
         }
         return replaced;
     }
@@ -182,17 +182,17 @@ namespace
         DWORD unused{};
         if (!VirtualProtect(gameImage + slotRva, sizeof(void*), previousProtection, &unused))
         {
-            log("[CustomizeNames] Could not restore delegate page protection.\r\n");
+            log("[EasyGenderAndNameChange] Could not restore delegate page protection.\r\n");
         }
         return replaced;
     }
 
-    class CustomizeNames final : public RC::CppUserModBase
+    class EasyGenderAndNameChange final : public RC::CppUserModBase
     {
     public:
-        CustomizeNames()
+        EasyGenderAndNameChange()
         {
-            ModName = STR("CustomizeNames");
+            ModName = STR("Easy Gender and Name Change");
             ModVersion = STR("1.1.1");
             ModDescription = STR("Enables gender selection and name entry in regular Fatal Bullet customization.");
         }
@@ -208,14 +208,14 @@ namespace
             const auto* pe = reinterpret_cast<const IMAGE_NT_HEADERS64*>(m_image + dos->e_lfanew);
             if (pe->FileHeader.TimeDateStamp != GameTimestamp || pe->OptionalHeader.SizeOfImage != GameImageSize)
             {
-                log("[CustomizeNames] Unsupported game build.\r\n");
+                log("[EasyGenderAndNameChange] Unsupported game build.\r\n");
                 return;
             }
             for (const auto& patch : Patches)
             {
                 if (std::memcmp(m_image + patch.functionRva, patch.signature, patch.signatureSize) != 0)
                 {
-                    log("[CustomizeNames] Customization code differs from the supported game build.\r\n");
+                    log("[EasyGenderAndNameChange] Customization code differs from the supported game build.\r\n");
                     return;
                 }
             }
@@ -223,7 +223,7 @@ namespace
             {
                 if (*reinterpret_cast<void* const*>(m_image + patch.slotRva) != m_image + patch.originalRva)
                 {
-                    log("[CustomizeNames] Customization delegate differs from the supported game build.\r\n");
+                    log("[EasyGenderAndNameChange] Customization delegate differs from the supported game build.\r\n");
                     return;
                 }
             }
@@ -232,7 +232,7 @@ namespace
             {
                 if (!replaceDelegate(patch.slotRva, gameImage + patch.originalRva, patch.replacement))
                 {
-                    log("[CustomizeNames] Could not enable direct transitions between gender and appearance.\r\n");
+                    log("[EasyGenderAndNameChange] Could not enable direct transitions between gender and appearance.\r\n");
                     restore();
                     return;
                 }
@@ -242,16 +242,16 @@ namespace
             {
                 if (!replaceWord(m_image + patch.functionRva + patch.offset, patch.original, patch.replacement))
                 {
-                    log("[CustomizeNames] Could not enable gender selection and name entry.\r\n");
+                    log("[EasyGenderAndNameChange] Could not enable gender selection and name entry.\r\n");
                     restore();
                     return;
                 }
                 ++m_applied;
             }
-            log("[CustomizeNames] Native gender selection and name entry enabled for regular customization.\r\n");
+            log("[EasyGenderAndNameChange] Native gender selection and name entry enabled for regular customization.\r\n");
         }
 
-        ~CustomizeNames() override
+        ~EasyGenderAndNameChange() override
         {
             restore();
         }
@@ -264,7 +264,7 @@ namespace
                 const auto& patch = Patches[--m_applied];
                 if (!replaceWord(m_image + patch.functionRva + patch.offset, patch.replacement, patch.original))
                 {
-                    log("[CustomizeNames] Could not restore customization code. Restart the game.\r\n");
+                    log("[EasyGenderAndNameChange] Could not restore customization code. Restart the game.\r\n");
                 }
             }
             while (m_delegatesApplied > 0)
@@ -272,7 +272,7 @@ namespace
                 const auto& patch = DelegatePatches[--m_delegatesApplied];
                 if (!replaceDelegate(patch.slotRva, patch.replacement, gameImage + patch.originalRva))
                 {
-                    log("[CustomizeNames] Could not restore a customization delegate. Restart the game.\r\n");
+                    log("[EasyGenderAndNameChange] Could not restore a customization delegate. Restart the game.\r\n");
                 }
             }
         }
@@ -285,7 +285,7 @@ namespace
 
 extern "C" __declspec(dllexport) RC::CppUserModBase* start_mod()
 {
-    return new CustomizeNames();
+    return new EasyGenderAndNameChange();
 }
 
 extern "C" __declspec(dllexport) void uninstall_mod(RC::CppUserModBase* mod)

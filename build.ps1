@@ -24,7 +24,7 @@ foreach ($line in $environment) {
 }
 
 $build = Join-Path $PSScriptRoot 'build'
-$package = Join-Path $PSScriptRoot 'dist/CustomizeNames'
+$package = Join-Path $PSScriptRoot 'dist/EasyGenderAndNameChange'
 $dlls = Join-Path $package 'dlls'
 New-Item -ItemType Directory -Force $build, $dlls | Out-Null
 
@@ -64,8 +64,8 @@ $includeFlags = $includes | ForEach-Object { "/I$_" }
 & cl.exe /nologo /LD /MD /EHsc /std:c++latest /O2 /utf-8 /DUNICODE /D_UNICODE /DUE_BUILD_SHIPPING=1 @includeFlags `
     /DPLATFORM_WINDOWS /DPLATFORM_MICROSOFT /DOVERRIDE_PLATFORM_HEADER_NAME=Windows /DUBT_COMPILED_PLATFORM=Win64 `
     "/Fo:$build/main.obj" "/Fe:$dlls/main.dll" (Join-Path $PSScriptRoot 'main.cpp') `
-    /link $importLibrary "/IMPLIB:$build/CustomizeNames.lib"
-if ($LASTEXITCODE -ne 0) { throw 'Could not build CustomizeNames.' }
+    /link $importLibrary "/IMPLIB:$build/EasyGenderAndNameChange.lib"
+if ($LASTEXITCODE -ne 0) { throw 'Could not build Easy Gender and Name Change.' }
 
 $enabled = Join-Path $package 'enabled.txt'
 if (-not (Test-Path -LiteralPath $enabled)) { New-Item -ItemType File -Path $enabled | Out-Null }
