@@ -1,6 +1,6 @@
 # CustomizeNames
 
-Rename your player or ArFA-sys after confirming their appearance in Sword Art Online: Fatal Bullet. The name field starts with their current name.
+Change your player or ArFA-sys gender and name in regular Sword Art Online: Fatal Bullet customization. The gender picker opens first with the current gender selected. The name field starts with the current name.
 
 ## Build and install
 
